@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"  # MinIO API
+      - "9001:9001"  # MinIO Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    command: server --console-address ":9001" /data
+    networks:
+      - local
+  
+  postgres:
+    image: postgres
+    restart: always
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      # Specify the username that will be created in the Postgres DB. By default, it will create DB with the same name
+      POSTGRES_USER: lakefs
+      # Set password for lakefs user - I believe in you that you will use a more complex password :-)  
+      POSTGRES_PASSWORD: 1qaz@WSX
+    volumes:
+      # Postgres DB data will be saved on the Linux box under /data/postgres-volume
+      - ./data/postgres-volume:/var/lib/postgresql/data  
+    # Will run the service under lakefsnetwork internal network
+    networks:   
+      - local
+  
+  pgadmin:
+    # pgadmin Image
+    image: dpage/pgadmin4
+    # In case of service\container crush, the container will restart.
+    restart: always
+    container_name: pgadmin
+    environment:
+      # Specify the username that will be created in pgadmin - Must be email
+      PGADMIN_DEFAULT_EMAIL: zbeda@zbeda.com
+      # Set password for zbeda@zbeda.com user - I believe in you that you will use a more complex password :-)  
+      PGADMIN_DEFAULT_PASSWORD: 1qaz@WSX
+    # Pgadmin UI is running under port 80. To connect the pgadmin from the external browser,  port 8080 is mapped to pgadmin UI port 80 
+    ports:
+      - 8080:80 
+    # Will run the service under lakefsnetwork internal network
+    networks:   
+      - local
+    volumes:
+      # Mapping a predefined JSON file that include the Postgres server connection configuration 
+      - ./data/pgadmin-volume/server.json:/pgadmin4/servers.json 
+  
+  lakefs:
+    # lakefs Image
+    image: treeverse/lakefs:latest
+    # In case of service\container crush, the container will restart.
+    restart: always
+    # Requires that Postgres DB will be up for the lakeFS platform to run
+    container_name: lakefs
+    depends_on:  
+      - postgres
+    environment:
+      # Define the type of DataBase that lakeFS platform will use for metadata and configuration
+      LAKEFS_DATABASE_TYPE: postgres  
+      # Connection link to postgres DB -  postgres://<db-username>:<username:password>@<postgres-server-name>:<postgres-port>/<db-name>
+      LAKEFS_DATABASE_POSTGRES_CONNECTION_STRING: postgres://lakefs:1qaz@WSX@postgres:5432/lakefs  
+      # Encryption key that will be used for data encryption
+      LAKEFS_AUTH_ENCRYPT_SECRET_KEY: 1qaz@WSX  
+      # Define the type of storage that lakeFS platform will use to save content. In pur case we are using Minio -s3
+      LAKEFS_BLOCKSTORE_TYPE: s3 
+      # This value is required when integrating with Minio
+      LAKEFS_BLOCKSTORE_S3_FORCE_PATH_STYLE: "true" 
+      # Minio server endpoing & main bucket name. If you will not add the bucket name , lakefs repos will be adding under main storage path
+      LAKEFS_BLOCKSTORE_S3_ENDPOINT: http://minio:9000
+      # This value is required when integrating with Minio
+      LAKEFS_BLOCKSTORE_S3_DISCOVER_BUCKET_REGION: "false"
+      # Minio access key
+      LAKEFS_BLOCKSTORE_S3_CREDENTIALS_ACCESS_KEY_ID: Ki65FsR1KAaf2GuxDiyb
+      # Minio access token
+      LAKEFS_BLOCKSTORE_S3_CREDENTIALS_SECRET_ACCESS_KEY: MWVJgYA8uITv8ZkwHDXP6Dwle7hzxAIEi3M2kXt2 
+    networks:
+      - local
+    ports:
+    # lakeFS UI is running under port 8000. To connect the lakeFS from the external browser,  port 8000 is mapped to lakeFS UI port 8000
+      - 8000:8000
+
+volumes:
+  minio-data:
+
+networks: 
+  local:
+    driver: bridge
