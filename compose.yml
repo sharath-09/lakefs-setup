@@ -40,6 +40,8 @@ services:
     # In case of service\container crush, the container will restart.
     restart: always
     container_name: pgadmin
+    depends_on:
+      - postgres
     environment:
       # Specify the username that will be created in pgadmin - Must be email
       PGADMIN_DEFAULT_EMAIL: zbeda@zbeda.com
@@ -47,7 +49,7 @@ services:
       PGADMIN_DEFAULT_PASSWORD: 1qaz@WSX
     # Pgadmin UI is running under port 80. To connect the pgadmin from the external browser,  port 8080 is mapped to pgadmin UI port 80 
     ports:
-      - 8080:80 
+      - 8081:80 
     # Will run the service under lakefsnetwork internal network
     networks:   
       - local
@@ -64,6 +66,8 @@ services:
     container_name: lakefs
     depends_on:  
       - postgres
+    volumes:
+      - ./data/lakefs/config.yaml:/etc/lakefs/config.yaml:ro
     environment:
       # Define the type of DataBase that lakeFS platform will use for metadata and configuration
       LAKEFS_DATABASE_TYPE: postgres  
@@ -88,10 +92,37 @@ services:
     ports:
     # lakeFS UI is running under port 8000. To connect the lakeFS from the external browser,  port 8000 is mapped to lakeFS UI port 8000
       - 8000:8000
+  
+  keycloak:
+    image: mykeycloak
+    container_name: keycloak
+    depends_on:
+      - postgres
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_HTTP_ENABLED: true
+      KC_DB_URL: jdbc:postgresql://postgres/keycloak?useSSL=false
+      KC_DB_USERNAME: lakefs
+      KC_DB_PASSWORD: 1qaz@WSX
+      KC_HOSTNAME_PORT: 8443
+    networks:
+      - local
+    ports:
+      - 8080:8443
+  
+  remote-auth:
+    image: auth-service
+    container_name: auth-service
+    networks:
+      - local
+    ports:
+      - 8090:8090
 
 volumes:
   minio-data:
 
 networks: 
   local:
-    driver: bridge
+    driver: host

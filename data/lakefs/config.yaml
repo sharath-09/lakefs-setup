@@ -1,0 +1,17 @@
+auth:
+    remote_authenticator:
+        enabled: true
+        endpoint: http://auth-service:8090/auth
+        default_user_group: "Developers"
+    ui_config:
+        logout_url: /logout
+        login_cookie_names:
+            - internal_auth_session
+        rbac: "simplified"
+    api:
+      skip_health_check: true
+      endpoint: http://auth-service:8090
+    
+    authentication_api:
+      endpoint: http://auth-service:8090
+    
