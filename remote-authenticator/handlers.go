@@ -1,59 +1,10 @@
-// main.go
 package main
 
-import (
-	"encoding/base64"
-	"encoding/json"
-	"log"
-	"net/http"
-	"os"
-	"strings"
-	"sync"
-	"time"
+import "net/http"
+import "strings"
+import "encoding/json"
+import "encoding/base64"
 
-	"github.com/joho/godotenv"
-)
-
-// -----------------------------
-// Data Types (schemas)
-// -----------------------------
-
-// AuthRequestBody represents the request body for POST /auth
-type AuthRequestBody struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-// AuthResponseBody is the response for a successful POST /auth
-type AuthResponseBody struct {
-	ExternalUserIdentifier string `json:"external_user_identifier"`
-}
-
-// ErrorResponse is used for sending error messages
-type ErrorResponse struct {
-	Message string `json:"message"`
-}
-
-// UserDetail is returned by GET /auth/users/{userid}
-type UserDetail struct {
-	Username          string `json:"username"`
-	CreationDate      int64  `json:"creation_date"`
-	FriendlyName      string `json:"friendly_name"`
-	Email             string `json:"email"`
-	Source            string `json:"source"`
-	EncryptedPassword string `json:"encryptedPassword"`
-	ExternalID        string `json:"external_id"`
-}
-
-// -----------------------------
-// In-Memory User Store
-// -----------------------------
-// This map holds UserDetail entries keyed by username.
-// A mutex guards concurrent access.
-var (
-	userStore   = make(map[string]UserDetail)
-	userStoreMu sync.RWMutex
-)
 
 // -----------------------------
 // Handlers
@@ -160,51 +111,11 @@ func getUserHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(detail)
 }
 
-// -----------------------------
-// Middleware
-// -----------------------------
 
-// loggingMiddleware prints out every incoming HTTP request (method, URI, remote addr, headers)
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Log basic request line
-		log.Printf("→ %s %s from %s", r.Method, r.RequestURI, r.RemoteAddr)
-		// Log all request headers
-		for name, values := range r.Header {
-			for _, value := range values {
-				log.Printf("    Header: %s: %s", name, value)
-			}
-		}
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
-}
-
-// -----------------------------
-// Main
-// -----------------------------
-
-func main() {
-	// Load environment variables from .env if it exists
-	_ = godotenv.Load()
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "80"
+func getUserPolicy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet{
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
 	}
-
-	port = "8090"
-
-	// Register handlers
-	mux := http.NewServeMux()
-	mux.HandleFunc("/auth", authHandler)
-	mux.HandleFunc("/auth/users/", getUserHandler)
-
-	// Wrap with logging middleware
-	loggedMux := loggingMiddleware(mux)
-
-	log.Printf("Remote Authenticator listening on port %s\n", port)
-	if err := http.ListenAndServe(":"+port, loggedMux); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
+	
 }
